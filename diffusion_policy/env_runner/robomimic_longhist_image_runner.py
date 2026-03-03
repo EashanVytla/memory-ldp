@@ -367,6 +367,7 @@ class RobomimicImageRunner(BaseImageRunner):
             obs = env.reset()
             past_action = None
             policy.reset()
+            step_count = 0
 
             env_name = self.env_meta['env_name']
             pbar = tqdm.tqdm(total=self.max_steps, desc=f"Eval {env_name}Image {chunk_idx+1}/{n_chunks}", 
@@ -402,8 +403,13 @@ class RobomimicImageRunner(BaseImageRunner):
                 sample_eff = 1 if (len(act_hist) < self.n_obs_steps - 1) else self.n_samples
 
                 obs_dict = dict_apply(obs_dict, lambda x: x.repeat((sample_eff,) + (1,) * (x.ndim - 1)))
+                predict_kwargs = {}
+                if hasattr(policy, 'per_mem_bank'):
+                    n_envs = obs_dict[list(obs_dict.keys())[0]].shape[0] // sample_eff
+                    predict_kwargs['episode_ids'] = np.repeat(np.full(n_envs, chunk_idx, dtype=np.int64), sample_eff)
+                    predict_kwargs['timesteps'] = np.repeat(np.full(n_envs, float(step_count), dtype=np.float32), sample_eff)
                 with torch.no_grad():
-                    action_dict = policy.predict_action(obs_dict)
+                    action_dict = policy.predict_action(obs_dict, **predict_kwargs)
 
                 action_dict = dict_apply(action_dict,
                         lambda x: x.view((sample_eff, x.shape[0] // sample_eff) + x.shape[1:]))
@@ -458,6 +464,7 @@ class RobomimicImageRunner(BaseImageRunner):
                 obs, reward, done, info = env.step(env_action)
                 done = np.all(done)
                 past_action = action
+                step_count += 1
 
                 # update pbar
                 pbar.update(action.shape[1])

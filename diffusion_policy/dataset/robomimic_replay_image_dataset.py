@@ -284,9 +284,13 @@ class RobomimicReplayImageDataset(BaseImageDataset):
         past_data = past_data[self.subsample_frames-1::self.subsample_frames]
         comb_data = np.concatenate([past_data, future_data])
         data["action"] = comb_data
+
+        episode_id, timestep = self.sampler.get_episode_id_and_timestep(idx)
         torch_data = {
             'obs': dict_apply(obs_dict, torch.from_numpy),
-            'action': torch.from_numpy(data['action'].astype(np.float32))
+            'action': torch.from_numpy(data['action'].astype(np.float32)),
+            'episode_ids': np.array(episode_id, dtype=np.int64),
+            'timesteps': np.array(timestep, dtype=np.float32),
         }
         return torch_data
 

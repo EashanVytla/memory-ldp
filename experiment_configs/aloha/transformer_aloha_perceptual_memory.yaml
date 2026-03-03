@@ -1,0 +1,268 @@
+_target_: diffusion_policy.workspace.train_diffusion_transformer_hybrid_workspace.TrainDiffusionTransformerHybridWorkspace
+obs_encoder_dir: null
+obs_encoder_freeze: false
+global_horizon: 32
+global_obs: 16
+global_action: 1
+subsample_frames: 20
+subsampling_method: uniform
+checkpoint:
+  save_last_ckpt: true
+  save_last_snapshot: false
+  topk:
+    format_str: epoch={epoch:04d}-test_mean_score={test_mean_score:.3f}.ckpt
+    k: 50
+    mode: max
+    monitor_key: test_mean_score
+dataloader:
+  batch_size: 64
+  num_workers: 8
+  persistent_workers: false
+  pin_memory: true
+  shuffle: false
+dataset_obs_steps: ${global_obs}
+ema:
+  _target_: diffusion_policy.model.diffusion.ema_model.EMAModel
+  inv_gamma: 1.0
+  max_value: 0.9999
+  min_value: 0.0
+  power: 0.75
+  update_after_step: 0
+exp_name: default
+horizon: ${global_horizon}
+keypoint_visible_rate: 1.0
+logging:
+  group: null
+  id: null
+  mode: online
+  name: ptp_aloha_perceptual_memory
+  project: diffusion_aloha
+  resume: true
+  tags:
+  - train_diffusion_transformer_hybrid
+  - aloha_perceptual_memory
+  - default
+multi_run:
+  run_dir: data/outputs/
+  wandb_name_base: train_diffusion_transformer_hybrid_aloha_perceptual_memory
+n_action_steps: ${global_action}
+n_latency_steps: 0
+n_obs_steps: ${global_obs}
+name: train_diffusion_transformer_hybrid
+obs_as_cond: true
+optimizer:
+  betas:
+  - 0.9
+  - 0.95
+  learning_rate: 0.0001
+  obs_encoder_weight_decay: 1.0e-06
+  transformer_weight_decay: 0.001
+past_action_visible: false
+policy:
+  _target_: diffusion_policy.policy.diffusion_transformer_hybrid_image_policy_with_memory.DiffusionTransformerHybridImagePolicyWithMemory
+  causal_attn: true
+  obs_encoder_dir: ${obs_encoder_dir}
+  obs_encoder_freeze: ${obs_encoder_freeze}
+  past_action_pred: false
+  past_steps_reg: -1
+  horizon: ${global_horizon}
+  n_action_steps: ${global_action}
+  n_cond_layers: 0
+  n_emb: 256
+  n_head: 4
+  n_layer: 8
+  n_obs_steps: ${global_obs}
+  noise_scheduler:
+    _target_: diffusers.schedulers.scheduling_ddpm.DDPMScheduler
+    beta_end: 0.02
+    beta_schedule: squaredcos_cap_v2
+    beta_start: 0.0001
+    clip_sample: true
+    num_train_timesteps: 100
+    prediction_type: epsilon
+    variance_type: fixed_small
+  num_inference_steps: 100
+  obs_as_cond: true
+  p_drop_attn: 0.3
+  p_drop_emb: 0.0
+  dinov2_model_name: vit_base_patch14_dinov2.lvd142m
+  dinov2_pretrained: true
+  dinov2_img_size: [224, 224]
+  per_token_size: 256
+  mem_length: 16
+  retrieval_layers: 2
+  dataloader_type: group
+  group_size: 16
+  consolidate_type: fifo
+  update_fused: true
+  shape_meta:
+    action:
+      shape:
+      - 7
+    obs:
+      top:
+        shape:
+        - 3
+        - 84
+        - 84
+        type: rgb
+      qpos:
+        shape:
+        - 7
+        type: low_dim
+      right_wrist:
+        shape:
+        - 3
+        - 84
+        - 84
+        type: rgb
+  time_as_cond: true
+shape_meta:
+  action:
+    shape:
+    - 7
+  obs:
+    top:
+      shape:
+      - 3
+      - 84
+      - 84
+      type: rgb
+    qpos:
+      shape:
+      - 7
+      type: low_dim
+    right_wrist:
+      shape:
+      - 3
+      - 84
+      - 84
+      type: rgb
+task:
+  abs_action: false
+  dataset:
+    _target_: diffusion_policy.dataset.robomimic_replay_image_dataset.RobomimicReplayImageDataset
+    abs_action: false
+    use_embed_if_present: false
+    dataset_path: data/aloha_twomodes_single/demos.hdf5
+    subsample_frames: ${subsample_frames}
+    horizon: ${global_horizon}
+    n_obs_steps: ${global_obs}
+    pad_after: 16
+    pad_before: 700
+    rotation_rep: rotation_6d
+    seed: 44
+    shape_meta:
+      action:
+        shape:
+        - 7
+      obs:
+        top:
+          shape:
+          - 3
+          - 84
+          - 84
+          type: rgb
+        qpos:
+          shape:
+          - 7
+          type: low_dim
+        right_wrist:
+          shape:
+          - 3
+          - 84
+          - 84
+          type: rgb
+    use_cache: false
+    val_ratio: 0.02
+  dataset_path: data/aloha_twomodes_single/demos.hdf5
+  dataset_type: mh
+  env_runner:
+    _target_: diffusion_policy.env_runner.aloha_image_runner.AlohaImageRunner
+    abs_action: false
+    task_name: sim_singlearm_pickandplace_twomodes_scripted
+    subsample_frames: ${subsample_frames}
+    crf: 22
+    dataset_path: data/aloha_twomodes_single/demos.hdf5
+    fps: 10
+    max_steps: 500
+    n_action_steps: ${global_action}
+    n_envs: 10
+    n_obs_steps: ${global_obs}
+    n_test: 10
+    n_test_vis: 2
+    n_train: 0
+    n_train_vis: 0
+    past_action: false
+    render_obs_key: top
+    shape_meta:
+      action:
+        shape:
+        - 7
+      obs:
+        top:
+          shape:
+          - 3
+          - 84
+          - 84
+          type: rgb
+        qpos:
+          shape:
+          - 7
+          type: low_dim
+        right_wrist:
+          shape:
+          - 3
+          - 84
+          - 84
+          type: rgb
+    test_start_seed: 100000
+    tqdm_interval_sec: 1.0
+    train_start_idx: 0
+  name: aloha_perceptual_memory
+  shape_meta:
+    action:
+      shape:
+      - 7
+    obs:
+      top:
+        shape:
+        - 3
+        - 84
+        - 84
+        type: rgb
+      qpos:
+        shape:
+        - 7
+        type: low_dim
+      right_wrist:
+        shape:
+        - 3
+        - 84
+        - 84
+        type: rgb
+  task_name: aloha_embed
+task_name: aloha_perceptual_memory
+training:
+  checkpoint_every: 100
+  debug: false
+  device: cuda:0
+  gradient_accumulate_every: 1
+  lr_scheduler: cosine
+  lr_warmup_steps: 1000
+  max_train_steps: null
+  max_val_steps: null
+  num_epochs: 3500
+  resume: true
+  rollout_every: 100
+  sample_every: 5
+  seed: 42
+  tqdm_interval_sec: 1.0
+  use_ema: true
+  val_every: 1
+val_dataloader:
+  batch_size: 64
+  num_workers: 8
+  persistent_workers: false
+  pin_memory: true
+  shuffle: false

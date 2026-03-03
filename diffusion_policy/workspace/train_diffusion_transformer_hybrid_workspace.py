@@ -72,7 +72,22 @@ class TrainDiffusionTransformerHybridWorkspace(BaseWorkspace):
         dataset = hydra.utils.instantiate(cfg.task.dataset)
         assert isinstance(dataset, BaseImageDataset)
         dataset.__getitem__(0)
-        train_dataloader = DataLoader(dataset, **cfg.dataloader)
+        policy_cfg = cfg.policy
+        if (hasattr(policy_cfg, 'dataloader_type') and
+                policy_cfg.dataloader_type == 'group' and
+                hasattr(dataset, 'sampler')):
+            from diffusion_policy.common.sampler import GroupBatchSampler
+            group_sampler = GroupBatchSampler(
+                sampler=dataset.sampler,
+                batch_size=cfg.dataloader.batch_size,
+                group_size=policy_cfg.group_size,
+                seed=cfg.training.seed,
+            )
+            dl_kwargs = {k: v for k, v in cfg.dataloader.items()
+                         if k not in ('shuffle', 'batch_size')}
+            train_dataloader = DataLoader(dataset, batch_sampler=group_sampler, **dl_kwargs)
+        else:
+            train_dataloader = DataLoader(dataset, **cfg.dataloader)
         normalizer = dataset.get_normalizer()
 
         # configure validation dataset

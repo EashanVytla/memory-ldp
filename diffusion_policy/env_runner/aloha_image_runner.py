@@ -256,6 +256,7 @@ class AlohaImageRunner(BaseImageRunner):
             obs = env.reset()
             past_action = None
             policy.reset()
+            step_count = 0
 
             env_name = self.env_meta['env_name']
             pbar = tqdm.tqdm(total=self.max_steps, desc=f"Eval {env_name}Image {chunk_idx+1}/{n_chunks}", 
@@ -279,8 +280,14 @@ class AlohaImageRunner(BaseImageRunner):
                         device="cuda"))
 
                 # run policy
+                predict_kwargs = {}
+                if hasattr(policy, 'per_mem_bank'):
+                    n_envs = obs_dict[list(obs_dict.keys())[0]].shape[0]
+                    start_id = chunk_idx * n_envs
+                    predict_kwargs['episode_ids'] = np.arange(start_id, start_id + n_envs, dtype=np.int64)
+                    predict_kwargs['timesteps'] = np.full(n_envs, float(step_count), dtype=np.float32)
                 with torch.no_grad():
-                    action_dict = policy.predict_action(obs_dict)
+                    action_dict = policy.predict_action(obs_dict, **predict_kwargs)
                 # device_transfer
                 np_action_dict = dict_apply(action_dict,
                     lambda x: x.detach().to('cpu').numpy())
@@ -296,6 +303,7 @@ class AlohaImageRunner(BaseImageRunner):
                 obs, reward, done, info = env.step(env_action)
                 done = np.all(done)
                 past_action = action
+                step_count += 1
 
                 # update pbar
                 pbar.update(action.shape[1])

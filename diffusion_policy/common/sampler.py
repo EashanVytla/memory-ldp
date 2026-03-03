@@ -74,6 +74,75 @@ def downsample_mask(mask, max_n, seed=0):
         assert np.sum(train_mask) == n_train
     return train_mask
 
+class GroupBatchSampler:
+    """
+    Batch sampler for episode-grouped memory training.
+
+    Packs `group_size` consecutive-timestep samples from the same episode into
+    contiguous batch positions. PerMemBank with dataloader_type="group" requires
+    this ordering: samples [0..G-1] must be episode A in temporal order, samples
+    [G..2G-1] must be episode B in temporal order, etc.
+
+    Groups are shuffled across batches. Within each group, samples are in
+    ascending timestep order.
+    """
+
+    def __init__(
+        self,
+        sampler: "SequenceSampler",
+        batch_size: int,
+        group_size: int,
+        drop_last: bool = True,
+        seed: int = 0,
+    ):
+        assert batch_size % group_size == 0, (
+            f"batch_size ({batch_size}) must be divisible by group_size ({group_size})"
+        )
+        self.batch_size = batch_size
+        self.group_size = group_size
+        self.drop_last = drop_last
+        self._rng = np.random.default_rng(seed=seed)
+
+        # Build per-episode sorted index lists
+        episode_to_items = {}
+        for sample_idx in range(len(sampler)):
+            episode_id, timestep = sampler.get_episode_id_and_timestep(sample_idx)
+            if episode_id not in episode_to_items:
+                episode_to_items[episode_id] = []
+            episode_to_items[episode_id].append((timestep, sample_idx))
+
+        # Sort by timestep within each episode, then chop into non-overlapping groups
+        self.groups = []
+        for items in episode_to_items.values():
+            items.sort(key=lambda x: x[0])
+            indices = [idx for _, idx in items]
+            for start in range(0, len(indices) - group_size + 1, group_size):
+                self.groups.append(indices[start:start + group_size])
+
+    def __iter__(self):
+        groups = list(self.groups)
+        self._rng.shuffle(groups)
+        n_per_batch = self.batch_size // self.group_size
+        for i in range(0, len(groups) - n_per_batch + 1, n_per_batch):
+            batch = []
+            for group in groups[i:i + n_per_batch]:
+                batch.extend(group)
+            yield batch
+        if not self.drop_last:
+            remainder_start = (len(groups) // n_per_batch) * n_per_batch
+            if remainder_start < len(groups):
+                batch = []
+                for group in groups[remainder_start:]:
+                    batch.extend(group)
+                yield batch
+
+    def __len__(self):
+        n_per_batch = self.batch_size // self.group_size
+        if self.drop_last:
+            return len(self.groups) // n_per_batch
+        return (len(self.groups) + n_per_batch - 1) // n_per_batch
+
+
 class SequenceSampler:
     def __init__(self, 
         replay_buffer: ReplayBuffer, 
@@ -109,12 +178,21 @@ class SequenceSampler:
             indices = np.zeros((0,4), dtype=np.int64)
 
         # (buffer_start_idx, buffer_end_idx, sample_start_idx, sample_end_idx)
-        self.indices = indices 
-        self.keys = list(keys) # prevent OmegaConf list performance problem
+        self.indices = indices
+        self.episode_ends = episode_ends
+        self.keys = list(keys)  # prevent OmegaConf list performance problem
         self.sequence_length = sequence_length
         self.replay_buffer = replay_buffer
         self.key_first_k = key_first_k
-    
+
+    def get_episode_id_and_timestep(self, idx: int) -> tuple:
+        """Return (episode_id, timestep) for the given sample index."""
+        buffer_start_idx, buffer_end_idx, sample_start_idx, sample_end_idx = self.indices[idx]
+        episode_id = int(np.searchsorted(self.episode_ends, buffer_start_idx, side="left"))
+        episode_start = 0 if episode_id == 0 else self.episode_ends[episode_id - 1]
+        timestep = float(buffer_start_idx - episode_start)
+        return episode_id, timestep
+
     def __len__(self):
         return len(self.indices)
         

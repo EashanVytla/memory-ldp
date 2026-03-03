@@ -195,6 +195,7 @@ tensorboard-data-server @ file:///home/conda/feedstock_root/build_artifacts/tens
 tensorboard-plugin-wit @ file:///home/conda/feedstock_root/build_artifacts/tensorboard-plugin-wit_1641458951060/work/tensorboard_plugin_wit-1.8.1-py3-none-any.whl
 tensorboardX @ file:///home/conda/feedstock_root/build_artifacts/tensorboardx_1654638215170/work
 termcolor @ file:///home/conda/feedstock_root/build_artifacts/termcolor_1662985294144/work
+timm
 threadpoolctl @ file:///home/conda/feedstock_root/build_artifacts/threadpoolctl_1643647933166/work
 tifffile @ file:///home/conda/feedstock_root/build_artifacts/tifffile_1665588749940/work
 toml @ file:///home/conda/feedstock_root/build_artifacts/toml_1734091811753/work
