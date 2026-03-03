@@ -126,10 +126,10 @@ class GateFusion(nn.Module):
         return scale * x1 + (1 - scale) * x2
 
 
-class CogMemBank(nn.Module):
+class PerMemBank(nn.Module):
     """
-    Memory bank: retrieve, fuse (GateFusion), store tilde_p when update_fused=True.
-    When bank is full, consolidate via FIFO or ToMe.
+    Perceptual memory bank: retrieve, fuse (GateFusion), store tilde_p when
+    update_fused=True. When bank is full, consolidate via FIFO or ToMe.
     """
 
     def __init__(
@@ -287,29 +287,3 @@ class CogMemBank(nn.Module):
         return torch.cat(outputs, dim=0)
 
 
-class PerMemBank(CogMemBank):
-    """Perceptual memory bank. Same as CogMemBank with update_fused=True by default."""
-
-    def __init__(
-        self,
-        dataloader_type: str,
-        group_size: int,
-        token_size: int,
-        mem_length: int = 16,
-        retrieval_layers: int = 2,
-        use_timestep_pe: bool = True,
-        fusion_type: str = "gate",
-        consolidate_type: str = "tome",
-        update_fused: bool = True,
-    ):
-        super().__init__(
-            dataloader_type=dataloader_type,
-            group_size=group_size,
-            token_size=token_size,
-            mem_length=mem_length,
-            retrieval_layers=retrieval_layers,
-            use_timestep_pe=use_timestep_pe,
-            fusion_type=fusion_type,
-            consolidate_type=consolidate_type,
-            update_fused=update_fused,
-        )

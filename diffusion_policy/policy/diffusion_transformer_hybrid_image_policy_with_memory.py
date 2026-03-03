@@ -323,8 +323,8 @@ class DiffusionTransformerHybridImagePolicyWithMemory(BaseImagePolicy):
         if hasattr(timesteps, "cpu"):
             timesteps = timesteps.cpu().numpy()
 
-        cond = self._get_obs_features(nobs, batch_size, To)
-        per_tokens = self._get_perceptual_tokens(nobs, episode_ids, timesteps)
+        cond, last_patches = self._encode_all_images(nobs, batch_size, To)
+        per_tokens = self._get_perceptual_tokens(last_patches, episode_ids, timesteps)
 
         trajectory = nactions
         if self.pred_action_steps_only:
